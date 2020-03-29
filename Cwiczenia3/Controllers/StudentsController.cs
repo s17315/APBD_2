@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Cwiczenia3.DAL;
 using Cwiczenia3.Models.Student;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,13 +13,12 @@ namespace Cwiczenia3.Controllers
     [Route("api/students")]
     public class StudentsController : ControllerBase
     {
-        private static List<Student> students = new List<Student>() {
-            new Student("B", "A", "0"), 
-            new Student("A", "C", "23"),
-            new Student("C", "D", "22"),
-            new Student("D", "B", "2"),
-            new Student("E", "F", "12")
-        };
+        private readonly IDBService _dbService;
+
+        public StudentsController(IDBService dBService)
+        {
+            _dbService = dBService;
+        }
 
         [HttpGet]
         public IActionResult GetStudents(OrderStudentBy orderBy)
@@ -26,24 +26,23 @@ namespace Cwiczenia3.Controllers
             switch (orderBy)
             {
                 case OrderStudentBy.ID_STUDENT:
-                    return Ok(students.OrderBy(s => s.IdStudent));
                 case OrderStudentBy.FIRST_NAME:
-                    return Ok(students.OrderBy(s => s.FirstName));
                 case OrderStudentBy.LAST_NAME:
-                    return Ok(students.OrderBy(s => s.LastName));
                 case OrderStudentBy.INDEX_NUMBER:
-                    return Ok(students.OrderBy(s => s.IndexNumber));
+                    return Ok(_dbService.GetStudents(orderBy));
             }
 
-            return Ok(students);
+            return Ok(_dbService.GetStudents());
         }
 
         [HttpGet("{id}")]
         public IActionResult GetStudent(int id)
         {
-            if (students.Exists(s => s.IdStudent == id))
+            Student student = _dbService.GetStudent(id);
+
+            if (student != null)
             {
-                return Ok(students[id]);
+                return Ok(student);
             }
 
             return NotFound("Student not found");
@@ -52,25 +51,25 @@ namespace Cwiczenia3.Controllers
         [HttpPost]
         public IActionResult CreateStudent(IdLessStudent idLessStudent)
         {
-            Student newStudent = new Student(idLessStudent);
+            Student student = _dbService.AddStudent(idLessStudent);
 
-            students.Add(newStudent);
-            
-            return Ok(newStudent);
+            if (student != null)
+            {
+                return Ok(student);
+            }
+
+            return NotFound("Could not add student");
         }
 
         [HttpPut("{id}")]
         public IActionResult UpdateStudent(int id, IdLessStudent idLessStudent)
         {
-            if (students.Exists(s => s.IdStudent == id))
-            {
-                students.RemoveAll(s => s.IdStudent == id);
-                Student student = new Student(id, idLessStudent);
-                students.Add(student);
+            Student student = _dbService.UpdateStudent(id, idLessStudent);
 
+            if (student != null)
+            {
                 return Ok("Update done");
             }
-
 
             return NotFound("Student not found");
         }
@@ -78,10 +77,8 @@ namespace Cwiczenia3.Controllers
         [HttpDelete("{id}")]
         public IActionResult DeleteStudent(int id)
         {
-            if (students.Exists(s => s.IdStudent == id))
+            if (_dbService.RemoveStudent(id))
             {
-                students.RemoveAll(s => s.IdStudent == id);
-
                 return Ok("Delete done");
             }
 
